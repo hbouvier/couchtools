@@ -4,7 +4,7 @@ GOCC=go
 # make GOCC="docker run --rm -t -v ${GOPATH}:/go hbouvier/go-lang:1.5"
 PROJECTNAME=couchtools
 
-all: get-deps fmt macos linux arm test coverage
+all: get-deps fmt darwin linux arm windows build coverage
 
 clean:
 	rm -rf coverage.out \
@@ -29,17 +29,23 @@ get-deps:
 
 linux:
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 ${GOCC} install github.com/hbouvier/${PROJECTNAME}
+	@if [[ $(shell uname | tr '[:upper:]' '[:lower:]') == $@ ]] ; then mkdir -p ${GOPATH}/bin/$@_amd64 && mv ${GOPATH}/bin/${PROJECTNAME} ${GOPATH}/bin/$@_amd64/ ; fi
 
-macos:
+darwin:
 	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 ${GOCC} install github.com/hbouvier/${PROJECTNAME}
-	@mkdir -p ${GOPATH}/bin/darwin_amd64
-	@mv ${GOPATH}/bin/${PROJECTNAME} ${GOPATH}/bin/darwin_amd64
+	@if [[ $(shell uname | tr '[:upper:]' '[:lower:]') == $@ ]] ; then mkdir -p ${GOPATH}/bin/$@_amd64 && mv ${GOPATH}/bin/${PROJECTNAME} ${GOPATH}/bin/$@_amd64/ ; fi
 
 arm:
 	GOOS=linux GOARCH=arm CGO_ENABLED=0 ${GOCC} install github.com/hbouvier/${PROJECTNAME}
+	@if [[ $(shell uname | tr '[:upper:]' '[:lower:]') == $@ ]] ; then mkdir -p ${GOPATH}/bin/$@_amd64 && mv ${GOPATH}/bin/${PROJECTNAME} ${GOPATH}/bin/$@_amd64/ ; fi
 
-release: linux macos arm
-	@mkdir -p release/bin/{linux_amd64,darwin_amd64,linux_arm}
-	for i in linux_amd64 darwin_amd64 linux_arm; do cp ${GOPATH}/bin/$${i}/${PROJECTNAME} release/bin/$${i}/${PROJECTNAME} ; done
+windows:
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 ${GOCC} install github.com/hbouvier/${PROJECTNAME}
+	@if [[ $(shell uname | tr '[:upper:]' '[:lower:]') == $@ ]] ; then mkdir -p ${GOPATH}/bin/$@_amd64 && mv ${GOPATH}/bin/${PROJECTNAME}.exe ${GOPATH}/bin/$@_amd64/ ; fi
+
+release: linux darwin arm windows
+	@mkdir -p release/bin/{linux_amd64,darwin_amd64,linux_arm,windows_amd64}
+	for i in linux_amd64 darwin_amd64 linux_arm; do cp ${GOPATH}/bin/$${i}/${PROJECTNAME} release/bin/$${i}/ ; done
+	cp ${GOPATH}/bin/windows_amd64/${PROJECTNAME}.exe release/bin/windows_amd64/
 	COPYFILE_DISABLE=1 tar cvzf release/${PROJECTNAME}.v`cat VERSION`.tgz release/bin
 	zip -r release/${PROJECTNAME}.v`cat VERSION`.zip release/bin

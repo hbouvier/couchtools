@@ -26,6 +26,7 @@ func main() {
 	passwordPtr := flag.String("password", "", "User password")
 	basePathPtr := flag.String("path", ".", "Path of the design documents")
 	levelPtr := flag.String("log", "INFO", "Logging level")
+	ignoreRev := flag.Bool("ignore-rev", false, "Ignore the _rev.js files")
 	flag.Parse()
 	filter := &logutils.LevelFilter{
 		Levels:   []logutils.LogLevel{"DEBUG", "INFO", "WARN", "ERROR", "FATAL"},
@@ -63,7 +64,7 @@ func main() {
 	case "download":
 		download(client, *databasePtr, *basePathPtr, documentId)
 	case "upload":
-		upload(client, *databasePtr, *basePathPtr, documentId)
+		upload(client, *databasePtr, *basePathPtr, documentId, *ignoreRev)
 	default:
 		panic("Should never reach this!")
 	}
@@ -146,7 +147,7 @@ func recurseDocument(document map[string]interface{}, base string, path string) 
 	}
 }
 
-func upload(client httpclient.Client, database string, path string, documentId string) {
+func upload(client httpclient.Client, database string, path string, documentId string, ignoreRev bool) {
 	designDocName, parseDocIdError := designDocumentName(documentId)
 	if parseDocIdError != nil {
 		log.Printf("[ERROR] parsing %s >>> %#v", documentId, parseDocIdError)
@@ -157,6 +158,9 @@ func upload(client httpclient.Client, database string, path string, documentId s
 	fullpath := path + "/" + database + "/" + designDocName
 	log.Printf("[INFO] path to recurse: %s", fullpath)
 	filepath.Walk(fullpath, RecursePath(fullpath, "*.js", desingDocuments))
+	if ignoreRev == true {
+		delete(desingDocuments, "_rev")
+	}
 
 	url := "/" + database + "/" + documentId
 	response := PutJsonResult{}
@@ -191,6 +195,7 @@ func RecursePath(path string, filter string, desingDocuments map[string]interfac
 		}
 		log.Printf("[DEBUG] path: %s, fp: %s, fi: %s", path, fp, fi.Name())
 		log.Printf("[DEBUG] fp: %s, fi: %s", fp[len(path):], fi.Name())
+		log.Printf("[DEBUG] key: %s", removeBasePath(path, fp))
 		if fi.IsDir() {
 			put(removeBasePath(path, fp), make(map[string]interface{}), desingDocuments)
 		} else if matched {
@@ -209,6 +214,9 @@ func RecursePath(path string, filter string, desingDocuments map[string]interfac
 }
 
 func removeBasePath(basePath string, path string) string {
+	log.Printf("[DEBUG] basepath: %s -> path: %s", basePath, path)
+	log.Printf("[DEBUG] basepath[-1]: %s", basePath[len(basePath)-1:])
+	log.Printf("[DEBUG] with/:%s without/:%sbasepath[-1]: %s", path[len(basePath):], path[len(basePath)+1:])
 	if basePath[len(basePath)-1:] == "/" {
 		return path[len(basePath):]
 	} else {
